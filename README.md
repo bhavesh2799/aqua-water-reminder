@@ -13,7 +13,8 @@ Everything runs on free tiers. You don't need a billing card.
 |---|---|
 | The app (`public/`) | GitHub Pages |
 | Sign-in (anonymous), data, push | Firebase project `firechat-a4685` (Spark plan); Aqua's data is in the `aqua_users` collection |
-| Reminder sender (`reminders/send.js`) | GitHub Actions, every 10 minutes (`.github/workflows/reminders.yml`) |
+| Reminder sender (`reminders/send.js`) | GitHub Actions workflow `.github/workflows/reminders.yml` |
+| Timer that starts the sender every 10 min | Google Apps Script project "Aqua reminder timer" (`apps-script/Timer.gs`) |
 
 ## One-time setup: the reminder key
 
@@ -39,7 +40,7 @@ Every 10 minutes, for each user with reminders on, a push is sent only if:
 - at least your interval has passed since your last glass **and** since the last reminder
 - (optional) you're behind pace, if "Only when I'm behind" is on
 
-GitHub can delay scheduled runs by a few minutes, which is fine for water. A daily keep-alive stops GitHub from pausing the schedule on a quiet repo.
+GitHub's own cron never fired reliably for this repo, so a Google Apps Script time trigger starts the workflow instead. It uses a fine-grained GitHub token (Actions: read & write, this repo only) stored as the script property `GITHUB_TOKEN`. To pause all reminders, open the Apps Script project → Triggers (⏰) and delete the trigger; run `setUpTimer` to turn them back on.
 
 ## Goal formula
 Weight × 37 ml (under 30), 35 ml (30–55) or 30 ml (over 55), plus extra for activity (0–900 ml) and weather (0–500 ml). The total is rounded and kept between 1.5 and 4.5 L. You can set your own goal in Settings. This is a general guide, not medical advice.
