@@ -2,9 +2,14 @@ name: Water reminders
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # every 10 min (GitHub may delay runs a few minutes)
+    - cron: "3,13,23,33,43,53 * * * *"   # every 10 min, off the busy :00 mark (GitHub may still delay runs)
     - cron: "17 3 * * *"     # daily keep-alive so GitHub doesn't pause the schedule after 60 quiet days
-  workflow_dispatch: {}      # lets you run it by hand from the Actions tab
+  workflow_dispatch:         # lets you run it by hand from the Actions tab
+    inputs:
+      test:
+        description: "Send a test notification to everyone right now"
+        type: boolean
+        default: false
 
 permissions:
   actions: write
@@ -28,6 +33,7 @@ jobs:
       - run: node send.js
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FORCE_TEST: ${{ inputs.test || false }}
 
   keepalive:
     if: github.event.schedule == '17 3 * * *'

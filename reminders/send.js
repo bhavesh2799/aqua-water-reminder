@@ -57,10 +57,13 @@ async function run() {
     const snap = await db.collection("aqua_users").where("remindersOn", "==", true).get();
     let sent = 0;
 
+    const FORCE = process.env.FORCE_TEST === "true";
     await Promise.all(snap.docs.map(async (doc) => {
       const u = doc.data();
+      const who = doc.id.slice(0, 6);
+      const skip = (why) => logger.info(`user ${who}…: skipped (${why})`);
       const tokens = (u.tokens || []).filter(Boolean);
-      if (!tokens.length) return;
+      if (!tokens.length) return skip("no device registered");
 
       const tz = u.tz || "UTC";
       let local;
@@ -72,31 +75,32 @@ async function run() {
       if (e <= w) e += 1440;
       let m = local.min;
       if (m < w && m + 1440 <= e) m += 1440; // after-midnight but still "awake"
-      if (m < w || m >= e - 10) return; // asleep, or about to sleep
+      if (!FORCE && (m < w || m >= e - 10)) return skip(`outside waking hours: local ${local.date} ${Math.floor(local.min / 60)}:${String(local.min % 60).padStart(2, "0")} in ${tz}, window ${u.wake}–${u.sleep}`);
 
       const goal = Number(u.goalMl) || 2500;
       const glass = Number(u.glassMl || u.settings?.glassMl) || 250;
       const isToday = u.today?.date === local.date;
       const ml = isToday ? Number(u.today.ml) || 0 : 0;
-      if (ml >= goal) return;
+      if (!FORCE && ml >= goal) return skip("goal already reached");
 
       const interval = Math.max(20, Number(u.intervalMin) || 60);
       const lastReminder = u.lastReminderAt?.toMillis ? u.lastReminderAt.toMillis() : 0;
       const lastDrink = isToday ? Number(u.lastDrinkAt) || 0 : 0;
       const since = (t) => (nowMs - t) / 60000;
-      if (since(lastReminder) < interval - 2) return;
-      if (since(lastDrink) < interval - 2) return;
+      if (!FORCE && since(lastReminder) < interval - 2) return skip(`last reminder ${Math.round(since(lastReminder))} min ago, interval ${interval}`);
+      if (!FORCE && since(lastDrink) < interval - 2) return skip(`last glass ${Math.round(since(lastDrink))} min ago, interval ${interval}`);
 
       const pace = goal * Math.min(1, (m - w) / (e - w));
-      if (u.behindOnly && ml >= pace - 100) return;
+      if (!FORCE && u.behindOnly && ml >= pace - 100) return skip("on pace and 'only when behind' is on");
 
-      const msg = compose({ ml, goal, pace, glass });
+      const msg = FORCE ? { title: "Test from Aqua 💧", body: "Reminders are working. You'll get these through the day." } : compose({ ml, goal, pace, glass });
       const res = await getMessaging().sendEachForMulticast({
         tokens,
         data: { title: msg.title, body: msg.body, ml: String(ml), goal: String(goal) },
         webpush: { headers: { Urgency: "high", TTL: String(30 * 60) } },
       });
 
+      res.responses.forEach((r, i) => logger.info(`user ${who}…: device ${i + 1} ${r.success ? "sent" : "FAILED " + (r.error?.code || "") + " " + (r.error?.message || "")}`));
       const dead = [];
       res.responses.forEach((r, i) => {
         const code = r.error?.code || "";
