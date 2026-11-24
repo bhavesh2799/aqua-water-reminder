@@ -1,5 +1,5 @@
 /* Aqua service worker: offline cache + Firebase Cloud Messaging background pushes. */
-const CACHE = "aqua-v3";
+const CACHE = "aqua-v4";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./firebase-config.js", "./manifest.json",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png", "./icons/favicon-64.png",

@@ -535,7 +535,7 @@ $("#reset").addEventListener("click", () => {
   if (!confirm("Delete all Aqua data on this device?")) return;
   localStorage.removeItem(STORE_KEY); state = blank(); fillForm(); show("onboard");
 });
-$("#enable-push").addEventListener("click", enablePush);
+$("#enable-push").addEventListener("click", () => enablePush(false));
 
 // ───────────────────────── Firebase (optional) ─────────────────────────
 const FB = {};
@@ -591,13 +591,16 @@ async function syncNow() {
 }
 
 async function enablePush(silent = false) {
-  const fail = (m) => { if (!silent) toast(m, 4200); renderSettings(); };
+  const fail = (m) => { console.warn("[push]", m); if (!silent) { toast(m, 4200); renderSettings(); const h = $("#push-help"); h.textContent = m; h.style.color = "var(--behind)"; } else renderSettings(); };
   if (!fbConfigured()) return fail("Add your Firebase keys first (firebase-config.js).");
   if (!("Notification" in window) || !("serviceWorker" in navigator)) return fail("This browser doesn't support push notifications.");
   if (isIOS && !standalone) return fail("Add Aqua to your Home Screen first, then enable reminders from there.");
   if (!FB.ready && !(await initFirebase())) return fail("Couldn't reach Firebase. Check your config and connection.");
+  const btn = $("#enable-push");
+  if (!silent) { btn.disabled = true; btn.textContent = "Turning on…"; }
   const perm = silent ? Notification.permission : await Notification.requestPermission();
-  if (perm !== "granted") return fail("Notifications weren't allowed.");
+  btn.disabled = false; btn.textContent = "Turn on reminders";
+  if (perm !== "granted") return fail(perm === "denied" ? "Notifications are blocked for this site. Allow them in your browser's site settings, then tap the button again." : "Notifications weren't allowed. Tap the button again and choose Allow.");
   try {
     const m = await import(FB_BASE + "firebase-messaging.js");
     if (!(await m.isSupported())) return fail("Push isn't supported in this browser.");
