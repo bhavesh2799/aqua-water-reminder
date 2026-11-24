@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#F3F8FA" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Aqua" />
+  <title>Aqua</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icons/favicon-64.png" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="preload" href="./fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/figtree.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./firebase-config.js"></script>
+</head>
+<body>
+  <div id="app">
+
+    <!-- ───────── Onboarding ───────── -->
+    <section id="view-onboard" class="view" hidden>
+      <header class="onboard-head">
+        <h1>How much water do you need?</h1>
+        <p>Tell us a little about you. We'll work out your daily goal in glasses and remind you through the day.</p>
+      </header>
+
+      <form id="vitals-form" class="form" autocomplete="off">
+        <div class="group">
+          <div class="row two">
+            <label>Weight
+              <span class="unit-input"><input name="weightKg" type="number" inputmode="decimal" min="25" max="250" step="0.1" required /><i>kg</i></span>
+            </label>
+            <label>Height
+              <span class="ftin">
+                <span class="unit-input"><input name="heightFt" type="number" inputmode="numeric" min="3" max="7" required /><i>ft</i></span>
+                <span class="unit-input"><input name="heightIn" type="number" inputmode="numeric" min="0" max="11" /><i>in</i></span>
+              </span>
+            </label>
+          </div>
+          <div class="row two">
+            <label>Age
+              <span class="unit-input"><input name="age" type="number" inputmode="numeric" min="10" max="100" required /><i>years</i></span>
+            </label>
+            <label>Your glass
+              <select name="glassMl">
+                <option value="200">Small</option>
+                <option value="250" selected>Regular</option>
+                <option value="300">Large</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <fieldset class="group">
+          <legend>How active is a normal day?</legend>
+          <div class="chips" data-name="activity">
+            <button type="button" data-v="sedentary">Mostly sitting</button>
+            <button type="button" data-v="light">Some walking</button>
+            <button type="button" data-v="moderate">Workout most days</button>
+            <button type="button" data-v="active">Very active</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>What's the weather like?</legend>
+          <div class="chips" data-name="climate">
+            <button type="button" data-v="cool">Cool</button>
+            <button type="button" data-v="mild">Pleasant</button>
+            <button type="button" data-v="hot">Hot or humid</button>
+          </div>
+        </fieldset>
+
+        <div class="group">
+          <div class="row two">
+            <label>I wake up at <input name="wake" type="time" required /></label>
+            <label>I sleep at <input name="sleep" type="time" required /></label>
+          </div>
+        </div>
+
+        <div id="goal-preview" class="goal-preview" aria-live="polite"></div>
+        <button class="btn primary" type="submit" id="vitals-submit">Start tracking</button>
+      </form>
+    </section>
+
+    <!-- ───────── Today ───────── -->
+    <section id="view-today" class="view" hidden>
+      <header class="top">
+        <div>
+          <h2 id="greeting">Good morning</h2>
+          <p class="date" id="today-date"></p>
+        </div>
+        <span class="streak" id="streak-pill"></span>
+      </header>
+
+      <div class="hero">
+        <div class="vessel"><canvas id="orb" aria-hidden="true"></canvas></div>
+        <div class="readout">
+          <div class="count"><span id="glasses">0</span></div>
+          <p class="of">of <span id="goal-glasses">0</span> glasses</p>
+          <p class="ml"><span id="amt">0</span> of <span id="goal">0</span> ml</p>
+          <p class="status" id="status-line"></p>
+          <span id="pct" hidden>0</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="drink add" data-kind="glass">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14l-1.6 16.2A2 2 0 0 1 15.4 21H8.6a2 2 0 0 1-2-1.8L5 3z"/><path class="fill" d="M6.1 10h11.8l-1 9.1a1 1 0 0 1-1 .9H8.1a1 1 0 0 1-1-.9z"/></svg>
+          <span>Drink a glass</span><small></small>
+        </button>
+        <div class="minor">
+          <button class="add" data-kind="half"><b>Half glass</b><small></small></button>
+          <button class="add" data-kind="bottle"><b>Bottle</b><small>½ litre</small></button>
+          <button class="add" id="add-custom"><b>Other</b><small>choose</small></button>
+        </div>
+      </div>
+
+      <div class="sheet-panel">
+        <div class="panel-head">
+          <h3>Through the day</h3>
+          <button class="link" id="undo" disabled>Undo last</button>
+        </div>
+        <svg id="timeline" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+        <div class="legend"><span><i class="k you"></i>You</span><span><i class="k pace"></i>Where you should be</span></div>
+        <ul id="log" class="log"></ul>
+        <p id="next-reminder" class="next-reminder"></p>
+      </div>
+    </section>
+
+    <!-- ───────── History ───────── -->
+    <section id="view-history" class="view" hidden>
+      <header class="top"><div><h2>Last two weeks</h2><p class="date">Each bar is one day. Green means you hit your goal.</p></div></header>
+      <div class="stats">
+        <div><b id="st-avg">–</b><span>average a day</span></div>
+        <div><b id="st-hit">–</b><span>goals hit</span></div>
+        <div><b id="st-streak">–</b><span>days in a row</span></div>
+      </div>
+      <div class="bars-card"><div id="bars" class="bars"></div></div>
+    </section>
+
+    <!-- ───────── Settings ───────── -->
+    <section id="view-settings" class="view" hidden>
+      <header class="top"><div><h2>Settings</h2></div></header>
+
+      <h4 class="section-title">Reminders <span id="push-state" class="tag"></span></h4>
+      <div class="list">
+        <div class="list-pad">
+          <p class="help" id="push-help"></p>
+          <button class="btn primary" id="enable-push">Turn on reminders</button>
+        </div>
+        <label class="item">Remind me every <select id="interval"></select></label>
+        <label class="item toggle">Only when I'm behind <input type="checkbox" id="behind-only" /></label>
+        <label class="item toggle">Pause reminders <input type="checkbox" id="paused" /></label>
+        <div class="item static">Time zone <span id="tz"></span></div>
+      </div>
+
+      <h4 class="section-title">Your goal</h4>
+      <div class="list">
+        <div class="list-pad"><div id="goal-breakdown" class="breakdown"></div></div>
+        <label class="item">My glass
+          <select id="glass">
+            <option value="200">Small, 200 ml</option>
+            <option value="250">Regular, 250 ml</option>
+            <option value="300">Large, 300 ml</option>
+          </select>
+        </label>
+        <label class="item">Set my own goal
+          <span class="unit-input slim"><input id="goal-override" type="number" inputmode="numeric" min="800" max="6000" step="50" placeholder="Auto" /><i>ml</i></span>
+        </label>
+        <button class="item action" id="edit-vitals">Update weight, height and routine</button>
+      </div>
+
+      <div class="list">
+        <button class="item action danger" id="reset">Erase all data on this phone</button>
+      </div>
+      <p class="fineprint">The goal uses 30–37 ml per kg depending on age, plus extra for activity and heat. It's a general guide. If a doctor has given you a fluid limit, follow that instead.</p>
+    </section>
+
+    <!-- ───────── Bottom bar ───────── -->
+    <nav id="tabs" class="tabs" hidden>
+      <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M12 3c3.3 4.3 6 7.6 6 11a6 6 0 1 1-12 0c0-3.4 2.7-6.7 6-11z"/></svg>Today</button>
+      <button data-view="history"><svg viewBox="0 0 24 24"><path d="M6 20v-7M12 20V6M18 20v-10"/></svg>History</button>
+      <button data-view="settings"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+    </nav>
+
+    <dialog id="sheet" class="sheet">
+      <form method="dialog">
+        <h3>How much did you drink?</h3>
+        <div class="dial"><output id="custom-out">2 glasses</output><span id="custom-sub"></span><input id="custom-ml" type="range" min="0.5" max="6" step="0.5" value="2" /></div>
+        <div class="row two">
+          <button class="btn ghost" value="cancel">Cancel</button>
+          <button class="btn primary" value="ok" id="custom-ok">Add</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status"></div>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

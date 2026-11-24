@@ -1,0 +1,37 @@
+name: Water reminders
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 min (GitHub may delay runs a few minutes)
+    - cron: "17 3 * * *"     # daily keep-alive so GitHub doesn't pause the schedule after 60 quiet days
+  workflow_dispatch: {}      # lets you run it by hand from the Actions tab
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+jobs:
+  send:
+    if: github.event.schedule != '17 3 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults: { run: { working-directory: reminders } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: reminders/package-lock.json }
+      - run: npm ci --omit=dev
+      - run: node send.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+  keepalive:
+    if: github.event.schedule == '17 3 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/reminders.yml/enable"
+        env: { GH_TOKEN: "${{ github.token }}" }
