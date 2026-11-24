@@ -591,27 +591,30 @@ async function syncNow() {
 }
 
 async function enablePush(silent = false) {
-  const fail = (m) => { console.warn("[push]", m); if (!silent) { toast(m, 4200); renderSettings(); const h = $("#push-help"); h.textContent = m; h.style.color = "var(--behind)"; } else renderSettings(); };
+  const btn = $("#enable-push"), help = $("#push-help");
+  if (!silent) { btn.disabled = true; btn.textContent = "Turning on…"; help.style.color = ""; help.textContent = "Checking your phone…"; }
+  const reset = () => { btn.disabled = false; btn.textContent = "Turn on reminders"; };
+  const fail = (m) => { console.warn("[push]", m); reset(); if (!silent) { toast(m, 4200); renderSettings(); const h = $("#push-help"); h.textContent = m; h.style.color = "var(--behind)"; } else renderSettings(); };
   if (!fbConfigured()) return fail("Add your Firebase keys first (firebase-config.js).");
   if (!("Notification" in window) || !("serviceWorker" in navigator)) return fail("This browser doesn't support push notifications.");
   if (isIOS && !standalone) return fail("Add Aqua to your Home Screen first, then enable reminders from there.");
-  if (!FB.ready && !(await initFirebase())) return fail("Couldn't reach Firebase. Check your config and connection.");
-  const btn = $("#enable-push");
-  if (!silent) { btn.disabled = true; btn.textContent = "Turning on…"; }
+  if (!FB.ready && !(await Promise.race([initFirebase(), new Promise((r) => setTimeout(() => r(false), 15000))]))) return fail("Couldn't connect to the reminder service. Check your internet connection and try again.");
+  if (!silent) help.textContent = "Waiting for you to tap Allow…";
   const perm = silent ? Notification.permission : await Notification.requestPermission();
-  btn.disabled = false; btn.textContent = "Turn on reminders";
+  if (!silent) help.textContent = "Connecting to the reminder service…";
   if (perm !== "granted") return fail(perm === "denied" ? "Notifications are blocked for this site. Allow them in your browser's site settings, then tap the button again." : "Notifications weren't allowed. Tap the button again and choose Allow.");
   try {
     const m = await import(FB_BASE + "firebase-messaging.js");
     if (!(await m.isSupported())) return fail("Push isn't supported in this browser.");
     FB.messaging = FB.messaging || m.getMessaging(FB.app);
-    const reg = await navigator.serviceWorker.ready;
-    const token = await m.getToken(FB.messaging, { vapidKey: self.FIREBASE_VAPID_KEY, serviceWorkerRegistration: reg });
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, j) => setTimeout(() => j(new Error("the app's background worker didn't start. Close and reopen Aqua")), 10000))]);
+    const token = await Promise.race([m.getToken(FB.messaging, { vapidKey: self.FIREBASE_VAPID_KEY, serviceWorkerRegistration: reg }), new Promise((_, j) => setTimeout(() => j(new Error("timed out getting a push token")), 20000))]);
     await FB.fs.setDoc(FB.ref, { tokens: FB.fs.arrayUnion(token) }, { merge: true });
     if (!FB.onMsg) FB.onMsg = m.onMessage(FB.messaging, (p) => toast(p.data?.body || p.notification?.body || "Time for water 💧", 4000));
     state.settings.pushEnabled = true; save(); renderSettings(); if (!$("#view-today").hidden) renderToday();
     if (!silent) toast("Reminders turned on");
-  } catch (err) { console.error(err); fail("Couldn't enable push: " + (err.code || err.message)); }
+  } catch (err) { console.error(err); fail("Couldn't turn on reminders: " + (err.code || err.message)); }
+  reset();
 }
 
 // ───────────────────────── boot ─────────────────────────

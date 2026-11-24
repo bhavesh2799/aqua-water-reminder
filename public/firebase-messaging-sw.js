@@ -1,5 +1,5 @@
 /* Aqua service worker: offline cache + Firebase Cloud Messaging background pushes. */
-const CACHE = "aqua-v4";
+const CACHE = "aqua-202611241625";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./firebase-config.js", "./manifest.json",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png", "./icons/favicon-64.png",
@@ -7,7 +7,7 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(
@@ -21,7 +21,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== self.location.origin) return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-cache" })
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));
