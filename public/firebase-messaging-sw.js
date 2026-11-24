@@ -1,5 +1,5 @@
 /* Aqua service worker: offline cache + Firebase Cloud Messaging background pushes. */
-const CACHE = "aqua-202611241625";
+const CACHE = "aqua-202611241747";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./firebase-config.js", "./manifest.json",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png", "./icons/favicon-64.png",
@@ -52,7 +52,9 @@ try {
         badge: "./icons/badge-96.png",
         tag: "aqua-reminder",
         renotify: true,
-        vibrate: [80, 40, 80],
+        requireInteraction: true,           // stays on screen until you act on it
+        silent: false,
+        vibrate: [500, 200, 500, 200, 900], // strong buzz-buzz-buzz (Android only)
         data: { url: self.registration.scope },
         actions: [
           { action: "add-glass", title: "I drank a glass" },

@@ -610,7 +610,19 @@ async function enablePush(silent = false) {
     const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, j) => setTimeout(() => j(new Error("the app's background worker didn't start. Close and reopen Aqua")), 10000))]);
     const token = await Promise.race([m.getToken(FB.messaging, { vapidKey: self.FIREBASE_VAPID_KEY, serviceWorkerRegistration: reg }), new Promise((_, j) => setTimeout(() => j(new Error("timed out getting a push token")), 20000))]);
     await FB.fs.setDoc(FB.ref, { tokens: FB.fs.arrayUnion(token) }, { merge: true });
-    if (!FB.onMsg) FB.onMsg = m.onMessage(FB.messaging, (p) => toast(p.data?.body || p.notification?.body || "Time for water 💧", 4000));
+    if (!FB.onMsg) FB.onMsg = m.onMessage(FB.messaging, async (p) => {
+      // App is open: still buzz and show the alert, not just an in-app toast
+      const d = p.data || {};
+      toast(d.body || "Time for a glass of water", 5000);
+      if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 900]);
+      try {
+        (await navigator.serviceWorker.ready).showNotification(d.title || "Time for some water 💧", {
+          body: d.body || "", icon: "./icons/icon-192.png", badge: "./icons/badge-96.png", tag: "aqua-reminder", renotify: true,
+          requireInteraction: true, silent: false, vibrate: [500, 200, 500, 200, 900],
+          actions: [{ action: "add-glass", title: "I drank a glass" }, { action: "snooze", title: "Later" }],
+        });
+      } catch {}
+    });
     state.settings.pushEnabled = true; save(); renderSettings(); if (!$("#view-today").hidden) renderToday();
     if (!silent) toast("Reminders turned on");
   } catch (err) { console.error(err); fail("Couldn't turn on reminders: " + (err.code || err.message)); }
