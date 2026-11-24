@@ -1,9 +1,8 @@
 name: Water reminders
 
 on:
-  schedule:
-    - cron: "2,12,22,32,42,52 * * * *"   # every 10 min (GitHub may delay runs a few minutes)
-    - cron: "17 3 * * *"     # daily keep-alive so GitHub doesn't pause the schedule after 60 quiet days
+  # Started every 10 minutes by a Google Apps Script timer (see apps-script/Timer.gs),
+  # because GitHub's own schedule never fired reliably for this repo.
   workflow_dispatch:         # lets you run it by hand from the Actions tab
     inputs:
       test:
@@ -12,7 +11,6 @@ on:
         default: false
 
 permissions:
-  actions: write
   contents: read
 
 concurrency:
@@ -21,7 +19,6 @@ concurrency:
 
 jobs:
   send:
-    if: github.event.schedule != '17 3 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults: { run: { working-directory: reminders } }
@@ -34,10 +31,3 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FORCE_TEST: ${{ inputs.test || false }}
-
-  keepalive:
-    if: github.event.schedule == '17 3 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/reminders.yml/enable"
-        env: { GH_TOKEN: "${{ github.token }}" }
