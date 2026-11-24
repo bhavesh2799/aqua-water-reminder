@@ -13,7 +13,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 
 const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
-if (!sa.project_id) { console.error("FIREBASE_SERVICE_ACCOUNT secret is missing or invalid."); process.exit(1); }
+if (!sa.project_id) { console.warn("FIREBASE_SERVICE_ACCOUNT secret is not set yet — skipping this run."); process.exit(0); }
 initializeApp({ credential: cert(sa) });
 const db = getFirestore();
 const logger = console;
