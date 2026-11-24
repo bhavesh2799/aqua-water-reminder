@@ -2,7 +2,7 @@ name: Water reminders
 
 on:
   schedule:
-    - cron: "3,13,23,33,43,53 * * * *"   # every 10 min, off the busy :00 mark (GitHub may still delay runs)
+    - cron: "2,12,22,32,42,52 * * * *"   # every 10 min (GitHub may delay runs a few minutes)
     - cron: "17 3 * * *"     # daily keep-alive so GitHub doesn't pause the schedule after 60 quiet days
   workflow_dispatch:         # lets you run it by hand from the Actions tab
     inputs:
